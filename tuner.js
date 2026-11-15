@@ -43,22 +43,44 @@ const fmtTokens = (value) => (value >= 1e9 ? `${(value / 1e9).toFixed(2)}B` : va
 function reportText(report) {
   const t = report.totals
   const savings = report.savings
+  const coverage = report.coverage || {}
   const lines = [
     `窗口: 最近 ${report.window.days} 天（自 ${report.window.since.slice(0, 10)}）`,
     `会话 ${t.sessions} 个 / ${t.steps} 步 / 压缩 ${t.compactions} 次`,
     '',
-    '实测用量（来自会话日志里的 usage）:',
+    '按观测到的压缩触发点分期（历史里可能混着旧阈值跑出来的会话）:',
+  ]
+  for (const policy of report.policies || []) {
+    const label = policy.triggerTokens === null
+      ? '未发生压缩（无法判断策略）'
+      : `触发点 ≈${k(policy.triggerTokens)}${policy.thresholdRatio === null ? '（贴着上限）' : `（${policy.thresholdRatio.toFixed(2)}）`}`
+    lines.push(
+      `  ${label}: ${policy.totals.sessions} 会话 / ${policy.totals.steps} 步 / 压缩 ${policy.totals.compactions} 次` +
+        (policy.isCurrent ? '  ← 当前阈值' : ''),
+    )
+  }
+  lines.push(
+    '',
+    '实测用量（全部会话，来自日志里的 usage）:',
     `  缓存命中 ${fmtTokens(t.hit)}   未命中 ${fmtTokens(t.miss)}   输出 ${fmtTokens(t.out)}`,
     `  未命中占成本 ${t.missSharePct.toFixed(1)}%   平均上下文 ${k(t.promptAvg)}   峰值 ${k(t.promptMax)}`,
     `  成本（命中当量） ${fmtTokens(t.cost.total)}`,
-  ]
+  )
+  if (coverage.currentThresholdRatio !== null && coverage.currentThresholdRatio !== undefined) {
+    lines.push(
+      `  其中按当前阈值（${coverage.currentThresholdRatio}）跑的实测: ${coverage.sessionsUnderCurrent} 会话 / ${coverage.stepsUnderCurrent} 步（${coverage.sharePct.toFixed(1)}%）`,
+    )
+  }
   if (savings) {
     lines.push(
       '',
-      `节省估算（非实测）: ${savings.savedPct.toFixed(1)}%`,
+      `节省估算（非实测，模型）: ${savings.savedPct.toFixed(1)}%`,
       `  基线 ${savings.baseThresholdRatio}/${savings.baseRetainRatio} → 当前 ${savings.thresholdRatio}/${savings.retainRatio}`,
-      `  压缩次数 ${savings.baseEvents} → ${savings.currentEvents}；假设工作量与价格比不变`,
+      `  做法：把历史每步增量按两种阈值各回放一次（压缩 ${savings.baseEvents} → ${savings.currentEvents} 次），假设工作量与价格比不变`,
     )
+    if (coverage.isModelOnly) {
+      lines.push('  ! 当前阈值下的实测样本还太少，这个百分比只能当方向，不能当结论。')
+    }
   }
   lines.push(
     '',

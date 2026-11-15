@@ -60,9 +60,17 @@ output tokens, compaction count, average and peak context, cost expressed in hit
 (`miss × 10`, `output × 15`, hit = 1), and a rework signal — repeated identical tool calls, which is
 the first sign compaction went too deep.
 
+**Attributed by policy.** A session that compacted at ~712K ran under a different threshold than one
+that compacted at ~419K, so the ledger is split by the observed trigger height (bucketed to 8K;
+sessions that never compacted are listed as unclassifiable). "Data under the current threshold" tells
+you how much of the window was actually produced by the setting you are looking at — it is 0 right
+after you change the knobs, and grows from there. Do not read a saving off a window whose current
+policy has no data.
+
 **Estimated** (labelled in the UI and in the CLI): the saving versus the shipped default
 (`0.8 / 0.16`). It replays your real per-step growth under both policies. It is a model, not a bill:
-it assumes the same work happens and the same price ratio, and it does not price lost detail.
+it assumes the same work happens and the same price ratio, and it does not price lost detail. When
+the current threshold has almost no measured steps the panel says so explicitly.
 
 Privacy: local only. The plugin reads session logs, writes a cache next to `settings.json`, and never
 sends anything anywhere. The first run decompresses recent sessions (a few seconds); later runs reuse

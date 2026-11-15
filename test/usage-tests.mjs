@@ -3,8 +3,10 @@ import test from 'node:test'
 
 import {
   PRICES,
+  classifySession,
   compactSession,
   estimateSavings,
+  groupByPolicy,
   parseSessionJsonl,
   summarize,
   toolKey,
@@ -112,4 +114,47 @@ test('estimateSavings：增量太大时阈值降到保留量附近就压不动�
   const deltas = Array.from({ length: 50 }, () => 900000)
   const result = estimateSavings(deltas, { thresholdRatio: 0.3, retainRatio: 0.16 })
   assert.ok(Number.isFinite(result.savedPct))
+})
+
+const compactionAt = (prompt) =>
+  [
+    line({ type: 'assistant/message', data: { usage: usage(1000, prompt, 100) } }),
+    line({ type: 'compaction/start', data: {} }),
+    line({ type: 'compaction/summary', data: { summary: [{ type: 'text', text: 'x'.repeat(2000) }] } }),
+    line({ type: 'assistant/message', data: { usage: usage(2000, 100000, 100) } }),
+  ].join('\n')
+
+test('parseSessionJsonl：压缩发生时的 prompt 高度被记下来，用于给会话分期', () => {
+  const parsed = parseSessionJsonl(compactionAt(419000))
+  assert.equal(parsed.compactionTriggers.length, 1)
+  assert.ok(Math.abs(parsed.compactionTriggers[0] - 420000) <= 1)
+})
+
+test('classifySession：无压缩判不出来；压缩过的按触发点高度分期', () => {
+  assert.equal(classifySession({ compactionTriggers: [] }).key, 'no-compaction')
+
+  const defaultPolicy = classifySession({ compactionTriggers: [727040, 727000] })
+  // 727040 吸附到 8192 的整数桶
+  assert.equal(defaultPolicy.triggerTokens, 729088)
+  // 触发点贴着预算上限时无法反推 ratio
+  assert.equal(defaultPolicy.thresholdRatio, null)
+
+  const early = classifySession({ compactionTriggers: [419430] })
+  assert.equal(early.triggerTokens, 417792)
+  assert.ok(early.thresholdRatio > 0.39 && early.thresholdRatio < 0.41)
+})
+
+test('groupByPolicy：旧阈值与当前阈值的会话分开，并标出当前策略覆盖', () => {
+  const oldSession = compactSession(parseSessionJsonl(compactionAt(727040)))
+  const currentSession = compactSession(parseSessionJsonl(compactionAt(419430)))
+
+  const groups = groupByPolicy([oldSession, currentSession], { thresholdRatio: 0.4 })
+  assert.equal(groups.length, 2)
+  const current = groups.find((group) => group.isCurrent)
+  assert.ok(current, 'expected the 0.4 session to be flagged as current')
+  assert.equal(current.totals.sessions, 1)
+  assert.equal(current.totals.steps, 2)
+  const old = groups.find((group) => !group.isCurrent)
+  assert.equal(old.triggerTokens, 729088)
+  assert.equal(old.totals.sessions, 1)
 })

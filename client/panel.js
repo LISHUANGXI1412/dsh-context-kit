@@ -38,7 +38,7 @@ window.__ModuleLoader__.load({
       effectHint: "Reads this machine's session logs. Nothing leaves the device.",
       effectRun: 'Measure last 7 days',
       effectRunning: 'Reading session logs…',
-      effectEmpty: 'Not measured yet. The first run decompresses recent sessions and may take a few seconds.',
+      effectEmpty: 'Measuring… the first run decompresses recent sessions and may take a few seconds. Less than 7 days of history is fine — the window is capped at 7 days, not required.',
       effectSessions: 'sessions',
       effectSteps: 'steps',
       effectCompactions: 'compactions',
@@ -53,6 +53,13 @@ window.__ModuleLoader__.load({
       effectRework: 'Rework signal',
       effectReworkNote: 'repeated identical calls — the first sign compaction went too deep',
       effectSkipped: 'skipped files',
+      effectWindow: 'window',
+      effectFiles: 'session logs read',
+      effectAt: 'measured at',
+      effectPolicies: 'observed policies',
+      effectCurrent: 'current',
+      effectCoverage: 'data under the current threshold',
+      effectModelOnly: 'Too few steps ran under the current threshold — treat the estimate as a direction, not a result.',
     }
 
     const ZH = {
@@ -87,7 +94,7 @@ window.__ModuleLoader__.load({
       effectHint: '只读本机会话日志，数据不出设备。',
       effectRun: '统计最近 7 天',
       effectRunning: '正在读会话日志…',
-      effectEmpty: '还没统计过。第一次要解压最近的会话，可能需要几秒。',
+      effectEmpty: '正在统计… 第一次要解压最近的会话，可能需要几秒。用不满 7 天也能统计 —— 7 天是窗口上限，不是前提。',
       effectSessions: '个会话',
       effectSteps: '步',
       effectCompactions: '次压缩',
@@ -102,6 +109,13 @@ window.__ModuleLoader__.load({
       effectRework: '返工信号',
       effectReworkNote: '重复的相同调用 —— 压缩压过头的第一信号',
       effectSkipped: '跳过文件',
+      effectWindow: '窗口',
+      effectFiles: '个会话日志',
+      effectAt: '统计时间',
+      effectPolicies: '观测到的策略',
+      effectCurrent: '当前',
+      effectCoverage: '当前阈值下的实测',
+      effectModelOnly: '当前阈值下实际跑过的步数还太少 —— 这个估算只能当方向，不能当结论。',
     }
 
     const CSS = [
@@ -199,6 +213,16 @@ window.__ModuleLoader__.load({
       if (report) {
         const total = report.totals
         rows.push(meta(total.sessions + ' ' + t('effectSessions') + ' · ' + total.steps + ' ' + t('effectSteps') + ' · ' + total.compactions + ' ' + t('effectCompactions')))
+        if (report.policies && report.policies.length) {
+          rows.push(meta(t('effectPolicies')))
+          for (const policy of report.policies) {
+            const label = policy.triggerTokens === null ? '—' : fmtK(policy.triggerTokens)
+            rows.push(meta('  ' + label + ': ' + policy.totals.sessions + ' ' + t('effectSessions') + ' / ' + policy.totals.steps + ' ' + t('effectSteps') + (policy.isCurrent ? '  ← ' + t('effectCurrent') : '')))
+          }
+        }
+        if (report.coverage) {
+          rows.push(meta(t('effectCoverage') + ': ' + report.coverage.stepsUnderCurrent + ' ' + t('effectSteps') + ' (' + pct(report.coverage.sharePct / 100) + ')'))
+        }
         rows.push(
           h('div', { className: 'ck_row' },
             meta(t('effectHit') + ' ' + fmtBig(total.hit)),
@@ -217,6 +241,9 @@ window.__ModuleLoader__.load({
               h('span', { className: 'ck_val' }, '−' + report.savings.savedPct.toFixed(1) + '%'),
               meta(t('effectSavings') + ' · ' + t('effectSavingsNote'))),
           )
+          if (report.coverage && report.coverage.isModelOnly) {
+            rows.push(h('div', { className: 'ck_meta ck_warn' }, t('effectModelOnly')))
+          }
         }
         rows.push(meta(t('effectRework') + ' ' + total.duplicates + ' / ' + total.distinctCalls + ' (' + pct(total.duplicatePct / 100) + ') · ' + t('effectReworkNote')))
         if (report.skipped && report.skipped.length) rows.push(h('div', { className: 'ck_meta ck_warn' }, t('effectSkipped') + ': ' + report.skipped.length))

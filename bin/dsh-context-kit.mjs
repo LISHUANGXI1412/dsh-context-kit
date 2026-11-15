@@ -141,6 +141,15 @@ if (command === 'report') {
   const big = (value) => (value >= 1e9 ? `${(value / 1e9).toFixed(2)}B` : value >= 1e6 ? `${(value / 1e6).toFixed(1)}M` : `${Math.round(value / 1e3)}K`)
   console.log(`窗口    : 最近 ${report.window.days} 天（自 ${report.window.since.slice(0, 10)}）`)
   console.log(`规模    : ${t.sessions} 会话 / ${t.steps} 步 / ${t.compactions} 次压缩`)
+  for (const policy of report.policies || []) {
+    console.log(
+      `  分期  : ${policy.triggerTokens === null ? '无压缩（无法判断）' : `触发点 ≈${fmt(policy.triggerTokens)}`}` +
+        ` → ${policy.totals.sessions} 会话 / ${policy.totals.steps} 步${policy.isCurrent ? '（当前阈值）' : ''}`,
+    )
+  }
+  if (report.coverage) {
+    console.log(`  覆盖  : 当前阈值实测 ${report.coverage.stepsUnderCurrent} 步（${report.coverage.sharePct.toFixed(1)}%）`)
+  }
   console.log(`实测用量: 命中 ${big(t.hit)} · 未命中 ${big(t.miss)} · 输出 ${big(t.out)}`)
   console.log(`上下文  : 平均 ${fmt(t.promptAvg)} · 峰值 ${fmt(t.promptMax)}`)
   console.log(`成本    : ${big(t.cost.total)}（命中当量，未命中占 ${t.missSharePct.toFixed(1)}%）`)
@@ -150,6 +159,9 @@ if (command === 'report') {
         ` → 当前 ${report.savings.thresholdRatio}/${report.savings.retainRatio}，压缩 ${report.savings.baseEvents}→${report.savings.currentEvents} 次）`,
     )
     console.log('          这是估算，不是账单。')
+    if (report.coverage && report.coverage.isModelOnly) {
+      console.log('          ! 当前阈值下的实测样本太少，只能当方向。')
+    }
   }
   console.log(`返工    : 重复调用 ${t.duplicates} / 不同调用 ${t.distinctCalls}（${t.duplicatePct.toFixed(1)}%）`)
   console.log(`解压    : 本次 ${(report.decompressedBytes / 1e6).toFixed(1)}MB，缓存 ${report.files.length} 个文件`)
