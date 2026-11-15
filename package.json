@@ -34,6 +34,7 @@
     "lib/",
     "bin/",
     "client/",
+    "vendor/",
     "cordis.patch.yml",
     "icon.svg",
     "README.md",

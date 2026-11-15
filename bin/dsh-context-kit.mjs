@@ -134,5 +134,28 @@ if (command === 'clear') {
   process.exit(0)
 }
 
-fail(`未知命令: ${command}（可用: status | set | preview | sync | clear）`)
+if (command === 'report') {
+  const days = Number(args.days ?? 7)
+  const report = await kit.report({ days })
+  const t = report.totals
+  const big = (value) => (value >= 1e9 ? `${(value / 1e9).toFixed(2)}B` : value >= 1e6 ? `${(value / 1e6).toFixed(1)}M` : `${Math.round(value / 1e3)}K`)
+  console.log(`窗口    : 最近 ${report.window.days} 天（自 ${report.window.since.slice(0, 10)}）`)
+  console.log(`规模    : ${t.sessions} 会话 / ${t.steps} 步 / ${t.compactions} 次压缩`)
+  console.log(`实测用量: 命中 ${big(t.hit)} · 未命中 ${big(t.miss)} · 输出 ${big(t.out)}`)
+  console.log(`上下文  : 平均 ${fmt(t.promptAvg)} · 峰值 ${fmt(t.promptMax)}`)
+  console.log(`成本    : ${big(t.cost.total)}（命中当量，未命中占 ${t.missSharePct.toFixed(1)}%）`)
+  if (report.savings) {
+    console.log(
+      `节省估算: ${report.savings.savedPct.toFixed(1)}%（基线 ${report.savings.baseThresholdRatio}/${report.savings.baseRetainRatio}` +
+        ` → 当前 ${report.savings.thresholdRatio}/${report.savings.retainRatio}，压缩 ${report.savings.baseEvents}→${report.savings.currentEvents} 次）`,
+    )
+    console.log('          这是估算，不是账单。')
+  }
+  console.log(`返工    : 重复调用 ${t.duplicates} / 不同调用 ${t.distinctCalls}（${t.duplicatePct.toFixed(1)}%）`)
+  console.log(`解压    : 本次 ${(report.decompressedBytes / 1e6).toFixed(1)}MB，缓存 ${report.files.length} 个文件`)
+  console.log(report.privacy)
+  process.exit(0)
+}
+
+fail(`未知命令: ${command}（可用: status | set | preview | sync | clear | report）`)
 export { triggersFor }

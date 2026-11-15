@@ -41,6 +41,7 @@ Where it stores things:
 
 ```
 <profile>/dsh-context-kit/settings.json          # what the panel edits
+<profile>/dsh-context-kit/usage-cache.json       # parsed session stats, keyed by path+mtime+size
 <profile>/cordis.patch.yml                       # managed block: generated, not hand-written
 <profile>/dsh-context-kit/backups/               # every overwrite keeps the previous file (last 10)
 ```
@@ -48,6 +49,24 @@ Where it stores things:
 Precedence: `settings.json` wins over the plugin's `config.presets` in the bundle/patch. In practice the
 plugin row can stay empty (`presets: {}`) and the panel is the single place where numbers live — the
 managed block in `cordis.patch.yml` always reflects what you last applied.
+
+## Effect measurement
+
+The second card in the panel answers "did this actually save anything?" without pretending to know
+more than it can.
+
+**Measured** (read from `~/.dsh/sessions/**/session.v4.jsonl.zstd`): steps, cache-hit / cache-miss /
+output tokens, compaction count, average and peak context, cost expressed in hit-equivalents
+(`miss × 10`, `output × 15`, hit = 1), and a rework signal — repeated identical tool calls, which is
+the first sign compaction went too deep.
+
+**Estimated** (labelled in the UI and in the CLI): the saving versus the shipped default
+(`0.8 / 0.16`). It replays your real per-step growth under both policies. It is a model, not a bill:
+it assumes the same work happens and the same price ratio, and it does not price lost detail.
+
+Privacy: local only. The plugin reads session logs, writes a cache next to `settings.json`, and never
+sends anything anywhere. The first run decompresses recent sessions (a few seconds); later runs reuse
+the cache. The host RPC yields between files so the UI stays responsive.
 
 ## Why the tuner exists (the freeze problem)
 
@@ -76,6 +95,7 @@ dsh-context-kit set --threshold 0.5 --retain 0.16 --preset cordis
 dsh-context-kit sync [--force --mode replace]
 dsh-context-kit preview
 dsh-context-kit clear
+dsh-context-kit report [--days 7]
 ```
 
 `--resources "<DSH install>/resources"` when it cannot find the app by itself.
@@ -85,10 +105,11 @@ and points at the line numbers.
 ## Tool
 
 ```text
-preset_tuner(action="status" | "preview" | "sync" | "clear")
+preset_tuner(action="status" | "preview" | "sync" | "clear" | "report", days?)
 ```
 
-`status` is read-only and reports upstream drift; `sync` writes and tells you to restart.
+`status` is read-only and reports upstream drift; `sync` writes and tells you to restart;
+`report` returns the same measured/estimated summary as the panel card.
 
 ## Safety
 

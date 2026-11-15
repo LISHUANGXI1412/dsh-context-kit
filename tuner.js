@@ -38,6 +38,40 @@ function statusText(kit) {
   return lines.join('\n')
 }
 
+const fmtTokens = (value) => (value >= 1e9 ? `${(value / 1e9).toFixed(2)}B` : value >= 1e6 ? `${(value / 1e6).toFixed(1)}M` : `${Math.round(value / 1e3)}K`)
+
+function reportText(report) {
+  const t = report.totals
+  const savings = report.savings
+  const lines = [
+    `窗口: 最近 ${report.window.days} 天（自 ${report.window.since.slice(0, 10)}）`,
+    `会话 ${t.sessions} 个 / ${t.steps} 步 / 压缩 ${t.compactions} 次`,
+    '',
+    '实测用量（来自会话日志里的 usage）:',
+    `  缓存命中 ${fmtTokens(t.hit)}   未命中 ${fmtTokens(t.miss)}   输出 ${fmtTokens(t.out)}`,
+    `  未命中占成本 ${t.missSharePct.toFixed(1)}%   平均上下文 ${k(t.promptAvg)}   峰值 ${k(t.promptMax)}`,
+    `  成本（命中当量） ${fmtTokens(t.cost.total)}`,
+  ]
+  if (savings) {
+    lines.push(
+      '',
+      `节省估算（非实测）: ${savings.savedPct.toFixed(1)}%`,
+      `  基线 ${savings.baseThresholdRatio}/${savings.baseRetainRatio} → 当前 ${savings.thresholdRatio}/${savings.retainRatio}`,
+      `  压缩次数 ${savings.baseEvents} → ${savings.currentEvents}；假设工作量与价格比不变`,
+    )
+  }
+  lines.push(
+    '',
+    `返工信号: 重复调用 ${t.duplicates} 次 / 不同调用 ${t.distinctCalls} 个（${t.duplicatePct.toFixed(1)}%）`,
+    '  重复高说明在重读/重跑——那是压缩压过头的第一信号。',
+    '',
+    `本次解压 ${(report.decompressedBytes / 1e6).toFixed(1)}MB；缓存 ${report.files.length} 个会话文件` +
+      (report.skipped.length > 0 ? `；跳过 ${report.skipped.length} 个` : ''),
+    report.privacy,
+  )
+  return lines.join('\n')
+}
+
 export function apply(ctx, config = {}) {
   const settings = resolveConfig(config)
   const kit = createKit(config)
@@ -65,14 +99,19 @@ export function apply(ctx, config = {}) {
       '原文逐字节保留、只插入你配置的少量行，生成托管块写进 profile 的 cordis.patch.yml。' +
       '因此不会像手写覆盖那样冻结上游——DSH 升级后会按上游重新生成。' +
       'action=status 报告上游是否漂移；preview 只返回将要写入的文本；sync 真正落盘（需重启 DSH 生效）；' +
-      'clear 移除托管块。若 profile 里已有手写的同 id 覆盖，sync 默认拒绝写入，需 force + mode="replace" 接管。',
+      'clear 移除托管块；report 统计最近几天在本机产生的真实用量与节省估算（只读本地会话日志）。' +
+      '若 profile 里已有手写的同 id 覆盖，sync 默认拒绝写入，需 force + mode="replace" 接管。',
     parameters: {
       type: 'object',
       properties: {
         action: {
           type: 'string',
-          enum: ['status', 'preview', 'sync', 'clear'],
-          description: 'status（只读报告）/ preview（只返回文本）/ sync（写盘）/ clear（移除托管块）',
+          enum: ['status', 'preview', 'sync', 'clear', 'report'],
+          description: 'status（只读报告）/ preview（只返回文本）/ sync（写盘）/ clear（移除托管块）/ report（效果台账）',
+        },
+        days: {
+          type: 'number',
+          description: 'report 用：统计最近几天，默认 7',
         },
         force: {
           type: 'boolean',
@@ -119,6 +158,9 @@ export function apply(ctx, config = {}) {
         const result = kit.clear()
         if (!result.changed) return '没有托管块，未改动文件。'
         return `已移除 ${result.removed} 个托管块。备份: ${result.backup ?? '<无>'}\n重启 DSH 后恢复上游默认行为。`
+      }
+      if (action === 'report') {
+        return reportText(await kit.report({ days: Number(args.days) || 7 }))
       }
       throw new Error(`未知 action: ${action}`)
     },

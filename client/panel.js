@@ -1,5 +1,5 @@
 // dsh-context-kit 的 Settings 面板（Web 客户端插件）。
-// 通过 ctx.connection.rpc 调宿主 contextKit 服务：status / save / sync / preview / clear。
+// 通过 ctx.connection.rpc 调宿主 contextKit 服务：status / save / sync / preview / clear / report。
 window.__ModuleLoader__.load({
   id: 'dsh-context-kit',
   factory(require) {
@@ -12,7 +12,6 @@ window.__ModuleLoader__.load({
       subtitle: 'Save tokens by compacting earlier, without freezing the preset.',
       threshold: 'Compact at',
       retain: 'Keep after compact',
-      auto: 'Automatic compaction',
       save: 'Save',
       sync: 'Apply to profile',
       preview: 'Preview',
@@ -35,6 +34,25 @@ window.__ModuleLoader__.load({
       upstream: 'Upstream',
       busy: 'Working…',
       error: 'Error',
+      effectTitle: 'Measured effect',
+      effectHint: "Reads this machine's session logs. Nothing leaves the device.",
+      effectRun: 'Measure last 7 days',
+      effectRunning: 'Reading session logs…',
+      effectEmpty: 'Not measured yet. The first run decompresses recent sessions and may take a few seconds.',
+      effectSessions: 'sessions',
+      effectSteps: 'steps',
+      effectCompactions: 'compactions',
+      effectHit: 'cache hit',
+      effectMiss: 'cache miss',
+      effectOut: 'output',
+      effectMissShare: 'miss share of cost',
+      effectContext: 'context (avg / peak)',
+      effectCost: 'cost (hit-equivalents)',
+      effectSavings: 'Estimated saving',
+      effectSavingsNote: 'estimate: replays your real per-step growth against the shipped default; not a bill',
+      effectRework: 'Rework signal',
+      effectReworkNote: 'repeated identical calls — the first sign compaction went too deep',
+      effectSkipped: 'skipped files',
     }
 
     const ZH = {
@@ -43,7 +61,6 @@ window.__ModuleLoader__.load({
       subtitle: '早点压缩来省 token，同时不冻结预设。',
       threshold: '压缩触发于',
       retain: '压缩后保留',
-      auto: '启用自动压缩',
       save: '保存',
       sync: '写入 profile',
       preview: '预览',
@@ -66,27 +83,61 @@ window.__ModuleLoader__.load({
       upstream: '上游',
       busy: '处理中…',
       error: '出错',
+      effectTitle: '实测效果',
+      effectHint: '只读本机会话日志，数据不出设备。',
+      effectRun: '统计最近 7 天',
+      effectRunning: '正在读会话日志…',
+      effectEmpty: '还没统计过。第一次要解压最近的会话，可能需要几秒。',
+      effectSessions: '个会话',
+      effectSteps: '步',
+      effectCompactions: '次压缩',
+      effectHit: '缓存命中',
+      effectMiss: '未命中',
+      effectOut: '输出',
+      effectMissShare: '未命中占成本',
+      effectContext: '上下文（均值 / 峰值）',
+      effectCost: '成本（命中当量）',
+      effectSavings: '估算节省',
+      effectSavingsNote: '估算：用你的真实每步增量回放官方默认阈值，不等于账单',
+      effectRework: '返工信号',
+      effectReworkNote: '重复的相同调用 —— 压缩压过头的第一信号',
+      effectSkipped: '跳过文件',
     }
 
-    const CSS = `
-      .ck_wrap { display: flex; flex-direction: column; gap: 14px; }
-      .ck_head h2 { margin: 0 0 4px; font-size: 15px; }
-      .ck_head p { margin: 0; opacity: .7; font-size: 12px; }
-      .ck_card { border: 1px solid rgba(127,127,127,.25); border-radius: 10px; padding: 12px; display: flex; flex-direction: column; gap: 10px; }
-      .ck_row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
-      .ck_row label { min-width: 110px; font-size: 12px; opacity: .8; }
-      .ck_row input[type=range] { flex: 1 1 160px; }
-      .ck_val { font-variant-numeric: tabular-nums; min-width: 72px; text-align: right; font-size: 12px; }
-      .ck_btns { display: flex; gap: 8px; flex-wrap: wrap; }
-      .ck_btn { border: 1px solid rgba(127,127,127,.35); background: transparent; border-radius: 8px; padding: 6px 12px; cursor: pointer; font-size: 12px; }
-      .ck_btn.primary { background: #2563eb; border-color: #2563eb; color: #fff; }
-      .ck_btn:disabled { opacity: .5; cursor: default; }
-      .ck_meta { font-size: 11px; opacity: .65; word-break: break-all; }
-      .ck_state { font-size: 12px; padding: 6px 8px; border-radius: 8px; background: rgba(127,127,127,.12); }
-      .ck_warn { color: #d97706; }
-      .ck_err { color: #dc2626; }
-      .ck_pre { max-height: 220px; overflow: auto; font-size: 11px; background: rgba(127,127,127,.12); padding: 8px; border-radius: 8px; white-space: pre-wrap; }
-    `
+    const CSS = [
+      '.ck_wrap { display: flex; flex-direction: column; gap: 14px; }',
+      '.ck_head h2 { margin: 0 0 4px; font-size: 15px; }',
+      '.ck_head p { margin: 0; opacity: .7; font-size: 12px; }',
+      '.ck_card { border: 1px solid rgba(127,127,127,.25); border-radius: 10px; padding: 12px; display: flex; flex-direction: column; gap: 10px; }',
+      '.ck_row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }',
+      '.ck_row label { min-width: 110px; font-size: 12px; opacity: .8; }',
+      '.ck_row input[type=range] { flex: 1 1 160px; }',
+      '.ck_val { font-variant-numeric: tabular-nums; min-width: 72px; text-align: right; font-size: 12px; }',
+      '.ck_btns { display: flex; gap: 8px; flex-wrap: wrap; }',
+      '.ck_btn { border: 1px solid rgba(127,127,127,.35); background: transparent; border-radius: 8px; padding: 6px 12px; cursor: pointer; font-size: 12px; }',
+      '.ck_btn.primary { background: #2563eb; border-color: #2563eb; color: #fff; }',
+      '.ck_btn:disabled { opacity: .5; cursor: default; }',
+      '.ck_meta { font-size: 11px; opacity: .65; word-break: break-all; }',
+      '.ck_state { font-size: 12px; padding: 6px 8px; border-radius: 8px; background: rgba(127,127,127,.12); }',
+      '.ck_warn { color: #d97706; }',
+      '.ck_err { color: #dc2626; }',
+      '.ck_pre { max-height: 220px; overflow: auto; font-size: 11px; background: rgba(127,127,127,.12); padding: 8px; border-radius: 8px; white-space: pre-wrap; }',
+    ].join('\n')
+
+    const fmtK = (tokens) => {
+      if (!Number.isFinite(tokens)) return '—'
+      if (tokens >= 1024 * 1024) return (tokens / (1024 * 1024)).toFixed(1) + 'M'
+      return Math.round(tokens / 1024) + 'K'
+    }
+    const fmtBig = (value) => {
+      if (!Number.isFinite(value)) return '—'
+      if (value >= 1e9) return (value / 1e9).toFixed(2) + 'B'
+      if (value >= 1e6) return (value / 1e6).toFixed(1) + 'M'
+      if (value >= 1e3) return Math.round(value / 1e3) + 'K'
+      return String(Math.round(value))
+    }
+    const pct = (ratio) => Math.round(Number(ratio) * 1000) / 10 + '%'
+    const meta = (value) => h('div', { className: 'ck_meta' }, value)
 
     function makeT(ctx) {
       try {
@@ -106,7 +157,9 @@ window.__ModuleLoader__.load({
           }
         } catch {}
         let id = 'en'
-        try { id = ctx.locale.getLocale().id } catch {}
+        try {
+          id = ctx.locale.getLocale().id
+        } catch {}
         const dict = id === 'zh' ? ZH : EN
         return dict[key] || fallback || key
       }
@@ -114,7 +167,7 @@ window.__ModuleLoader__.load({
 
     function makeApi(ctx) {
       function call(method, args) {
-        return ctx.connection.rpc.call('/api', `contextKit/${method}`, { args: args || {} }, undefined).then(function (response) {
+        return ctx.connection.rpc.call('/api', 'contextKit/' + method, { args: args || {} }, undefined).then(function (response) {
           if (response && response.ok) return response.value
           const message = response && response.error ? response.error.message : 'context kit remote call failed'
           const error = new Error(message)
@@ -123,28 +176,78 @@ window.__ModuleLoader__.load({
         })
       }
       return {
-        status: function () { return call('status', {}) },
-        save: function (input) {
-          return call('save', {
+        status: () => call('status', {}),
+        preview: () => call('preview', {}),
+        clear: () => call('clear', {}),
+        sync: () => call('sync', { force: false, mode: 'append' }),
+        report: (days) => call('report', { days: days }),
+        save: (input) =>
+          call('save', {
             presetId: input.presetId,
             thresholdRatio: input.thresholdRatio,
             retainRatio: input.retainRatio,
             auto: input.auto,
             group: input.group,
-          })
-        },
-        sync: function () { return call('sync', { force: false, mode: 'append' }) },
-        preview: function () { return call('preview', {}) },
-        clear: function () { return call('clear', {}) },
+          }),
       }
     }
 
-    const fmtK = function (tokens) {
-      if (!Number.isFinite(tokens)) return '—'
-      if (tokens >= 1024 * 1024) return (tokens / (1024 * 1024)).toFixed(1) + 'M'
-      return Math.round(tokens / 1024) + 'K'
+    function EffectCard(props) {
+      const t = props.t
+      const report = props.report
+      const rows = []
+      if (report) {
+        const total = report.totals
+        rows.push(meta(total.sessions + ' ' + t('effectSessions') + ' · ' + total.steps + ' ' + t('effectSteps') + ' · ' + total.compactions + ' ' + t('effectCompactions')))
+        rows.push(
+          h('div', { className: 'ck_row' },
+            meta(t('effectHit') + ' ' + fmtBig(total.hit)),
+            meta(t('effectMiss') + ' ' + fmtBig(total.miss)),
+            meta(t('effectOut') + ' ' + fmtBig(total.out))),
+        )
+        rows.push(
+          h('div', { className: 'ck_row' },
+            meta(t('effectMissShare') + ' ' + pct(total.missSharePct / 100)),
+            meta(t('effectContext') + ' ' + fmtK(total.promptAvg) + ' / ' + fmtK(total.promptMax)),
+            meta(t('effectCost') + ' ' + fmtBig(total.cost.total))),
+        )
+        if (report.savings) {
+          rows.push(
+            h('div', { className: 'ck_row' },
+              h('span', { className: 'ck_val' }, '−' + report.savings.savedPct.toFixed(1) + '%'),
+              meta(t('effectSavings') + ' · ' + t('effectSavingsNote'))),
+          )
+        }
+        rows.push(meta(t('effectRework') + ' ' + total.duplicates + ' / ' + total.distinctCalls + ' (' + pct(total.duplicatePct / 100) + ') · ' + t('effectReworkNote')))
+        if (report.skipped && report.skipped.length) rows.push(h('div', { className: 'ck_meta ck_warn' }, t('effectSkipped') + ': ' + report.skipped.length))
+        rows.push(meta(report.privacy))
+      } else {
+        rows.push(meta(t('effectEmpty')))
+      }
+      return h('div', { className: 'ck_card' },
+        h('div', { className: 'ck_row' },
+          h('label', null, t('effectTitle')),
+          meta(t('effectHint')),
+          h('button', { className: 'ck_btn', type: 'button', disabled: props.busy, onClick: props.onRun },
+            props.busy ? t('effectRunning') : t('effectRun'))),
+        ...rows)
     }
-    const pct = function (ratio) { return Math.round(Number(ratio) * 1000) / 10 + '%' }
+
+    function SliderRow(props) {
+      return h('div', { className: 'ck_row' },
+        h('label', null, props.label),
+        h('input', {
+          type: 'range',
+          min: props.min,
+          max: props.max,
+          step: 0.01,
+          value: props.value,
+          disabled: props.disabled,
+          onChange: function (event) { props.onChange(Number(event.target.value)) },
+        }),
+        h('span', { className: 'ck_val' }, fmtK(props.tokens)),
+        h('span', { className: 'ck_meta' }, pct(props.value) + ' ' + props.ofWindow))
+    }
 
     function Panel(props) {
       const t = props.t
@@ -156,6 +259,7 @@ window.__ModuleLoader__.load({
       const [message, setMessage] = React.useState('')
       const [error, setError] = React.useState('')
       const [pre, setPre] = React.useState('')
+      const [report, setReport] = React.useState(null)
 
       const load = React.useCallback(function () {
         return api.status().then(function (next) {
@@ -164,7 +268,9 @@ window.__ModuleLoader__.load({
             setThreshold(Number(next.knobs.thresholdRatio) || 0.5)
             setRetain(Number(next.knobs.retainRatio) || 0.16)
           }
-        }).catch(function (cause) { setError(String(cause && cause.message ? cause.message : cause)) })
+        }).catch(function (cause) {
+          setError(String(cause && cause.message ? cause.message : cause))
+        })
       }, [api])
 
       React.useEffect(function () { load() }, [load])
@@ -182,10 +288,9 @@ window.__ModuleLoader__.load({
       }
 
       const presetId = state && state.presets && state.presets.length ? state.presets[0] : 'cordis'
-      const window2 = state && state.triggers ? state.triggers.contextWindow : 1048576
-      const triggerTokens = Math.floor(window2 * threshold)
-      const retainTokens = Math.floor(window2 * retain)
-
+      const windowSize = state && state.triggers ? state.triggers.contextWindow : 1048576
+      const triggerTokens = Math.floor(windowSize * threshold)
+      const retainTokens = Math.floor(windowSize * retain)
       const entry = state && state.entries ? state.entries[0] : null
       const stateText = !entry
         ? t('missing')
@@ -195,83 +300,86 @@ window.__ModuleLoader__.load({
             ? t('upToDate') + ' · ' + entry.upstreamSha
             : t('missing')
 
+      const configCard = h('div', { className: 'ck_card' },
+        h(SliderRow, {
+          label: t('threshold'), min: 0.2, max: 0.85, value: threshold,
+          tokens: triggerTokens, ofWindow: t('ofWindow'), disabled: busy,
+          onChange: setThreshold,
+        }),
+        h(SliderRow, {
+          label: t('retain'), min: 0.04, max: Math.max(0.05, threshold - 0.02), value: retain,
+          tokens: retainTokens, ofWindow: t('ofWindow'), disabled: busy,
+          onChange: setRetain,
+        }),
+        meta(t('triggers') + ' ' + fmtK(triggerTokens) + ' · ' + t('keeps') + ' ' + fmtK(retainTokens)),
+        h('div', { className: 'ck_btns' },
+          h('button', {
+            className: 'ck_btn primary', type: 'button', disabled: busy,
+            onClick: function () {
+              return run(t('saved'), function () {
+                return api.save({ presetId: presetId, thresholdRatio: threshold, retainRatio: retain, auto: true, group: 'compaction' }).then(load)
+              })
+            },
+          }, t('save')),
+          h('button', {
+            className: 'ck_btn', type: 'button', disabled: busy,
+            onClick: function () {
+              return run('', function () {
+                return api.sync().then(function (result) {
+                  setMessage(result && result.changed ? t('synced') : t('unchanged'))
+                  return load()
+                })
+              })
+            },
+          }, t('sync')),
+          h('button', {
+            className: 'ck_btn', type: 'button', disabled: busy,
+            onClick: function () {
+              return run('', function () {
+                return api.preview().then(function (result) { setPre(result && result.text ? result.text : '') })
+              })
+            },
+          }, t('preview')),
+          h('button', {
+            className: 'ck_btn', type: 'button', disabled: busy,
+            onClick: function () {
+              return run(t('cleared'), function () { return api.clear().then(load) })
+            },
+          }, t('clear')),
+          h('button', {
+            className: 'ck_btn', type: 'button', disabled: busy,
+            onClick: function () { return load() },
+          }, t('refresh'))))
+
+      const infoRows = []
+      if (state) infoRows.push(h('div', { className: 'ck_state' }, stateText))
+      if (state && state.foreign && state.foreign.length) infoRows.push(h('div', { className: 'ck_state ck_warn' }, t('foreign')))
+      if (message) infoRows.push(meta(message))
+      if (error) infoRows.push(h('div', { className: 'ck_meta ck_err' }, t('error') + ': ' + error))
+      if (state) infoRows.push(meta(t('profile') + ': ' + state.profileDir + ' · ' + t('patch') + ': ' + state.patchPath))
+      if (state) infoRows.push(meta(t('upstream') + ': ' + (state.sources || []).join(' | ')))
+      if (state && state.managed && state.managed.length) {
+        infoRows.push(meta(state.managed.map(function (block) { return block.presetId + '@' + block.sha }).join(', ')))
+      }
+      infoRows.push(meta(t('restart')))
+      if (pre) infoRows.push(h('pre', { className: 'ck_pre' }, pre))
+
       return h('div', { className: 'ck_wrap' },
         h('div', { className: 'ck_head' },
           h('h2', null, t('title')),
           h('p', null, t('subtitle'))),
-
-        h('div', { className: 'ck_card' },
-          h('div', { className: 'ck_row' },
-            h('label', null, t('threshold')),
-            h('input', {
-              type: 'range', min: 0.2, max: 0.85, step: 0.01, value: threshold,
-              disabled: busy,
-              onChange: function (event) { setThreshold(Number(event.target.value)) },
-            }),
-            h('span', { className: 'ck_val' }, fmtK(triggerTokens)),
-            h('span', { className: 'ck_meta' }, pct(threshold) + ' ' + t('ofWindow'))),
-          h('div', { className: 'ck_row' },
-            h('label', null, t('retain')),
-            h('input', {
-              type: 'range', min: 0.04, max: Math.max(0.05, threshold - 0.02), step: 0.01, value: retain,
-              disabled: busy,
-              onChange: function (event) { setRetain(Number(event.target.value)) },
-            }),
-            h('span', { className: 'ck_val' }, fmtK(retainTokens)),
-            h('span', { className: 'ck_meta' }, pct(retain) + ' ' + t('ofWindow'))),
-          h('div', { className: 'ck_meta' },
-            t('triggers') + ' ' + fmtK(triggerTokens) + ' · ' + t('keeps') + ' ' + fmtK(retainTokens)),
-          h('div', { className: 'ck_btns' },
-            h('button', {
-              className: 'ck_btn primary', type: 'button', disabled: busy,
-              onClick: function () {
-                return run(t('saved'), function () {
-                  return api.save({ presetId: presetId, thresholdRatio: threshold, retainRatio: retain, auto: true, group: 'compaction' })
-                    .then(load)
-                })
-              },
-            }, t('save')),
-            h('button', {
-              className: 'ck_btn', type: 'button', disabled: busy,
-              onClick: function () {
-                return run('', function () {
-                  return api.sync().then(function (result) {
-                    setMessage(result && result.changed ? t('synced') : t('unchanged'))
-                    return load()
-                  })
-                })
-              },
-            }, t('sync')),
-            h('button', {
-              className: 'ck_btn', type: 'button', disabled: busy,
-              onClick: function () {
-                return run('', function () {
-                  return api.preview().then(function (result) { setPre(result && result.text ? result.text : '') })
-                })
-              },
-            }, t('preview')),
-            h('button', {
-              className: 'ck_btn', type: 'button', disabled: busy,
-              onClick: function () {
-                return run(t('cleared'), function () { return api.clear().then(load) })
-              },
-            }, t('clear')),
-            h('button', {
-              className: 'ck_btn', type: 'button', disabled: busy,
-              onClick: function () { return load() },
-            }, t('refresh')))),
-
-        state ? h('div', { className: 'ck_state' }, stateText) : null,
-        state && state.foreign && state.foreign.length ? h('div', { className: 'ck_state ck_warn' }, t('foreign')) : null,
-        message ? h('div', { className: 'ck_meta' }, message) : null,
-        error ? h('div', { className: 'ck_meta ck_err' }, t('error') + ': ' + error) : null,
-        state ? h('div', { className: 'ck_meta' }, t('profile') + ': ' + state.profileDir + ' · ' + t('patch') + ': ' + state.patchPath) : null,
-        state ? h('div', { className: 'ck_meta' }, t('upstream') + ': ' + (state.sources || []).join(' | ')) : null,
-        state && state.managed && state.managed.length
-          ? h('div', { className: 'ck_meta' }, state.managed.map(function (block) { return block.presetId + '@' + block.sha }).join(', '))
-          : null,
-        h('div', { className: 'ck_meta' }, t('restart')),
-        pre ? h('pre', { className: 'ck_pre' }, pre) : null)
+        configCard,
+        h(EffectCard, {
+          t: t,
+          report: report,
+          busy: busy,
+          onRun: function () {
+            return run('', function () {
+              return api.report(7).then(function (next) { setReport(next) })
+            })
+          },
+        }),
+        ...infoRows)
     }
 
     return {
