@@ -1,6 +1,6 @@
 {
   "name": "dsh-context-kit",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Save context tokens in DSH: a compaction-safe context index, and a tuner that lifts the auto-compaction trigger without freezing the preset — plus a Settings panel for both.",
   "type": "module",
   "main": "index.js",
