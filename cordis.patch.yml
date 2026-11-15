@@ -1,0 +1,21 @@
+# dsh-context-kit：一个包两个 Host 入口 + 一个 Settings 面板（面板由 package.json 的 dsh.client 声明）。
+# - context-kit-index：压缩安全的上下文索引（system prompt 里一段「有什么、在哪」的指针）
+# - context-kit-tuner：agent preset 内部配置调优（例如压缩阈值），只插入不冻结上游
+- insert:
+    - id: context-kit-index
+      name: dsh-context-kit
+      config:
+        enabled: true
+        injectMode: section
+        sectionName: index:index-page
+        sectionOrder: 10500
+        maxTokens: 1000
+        pathLimit: 40
+        artifactLimit: 20
+        targetChars: 48
+        manifestLines: 500
+    - id: context-kit-tuner
+      name: dsh-context-kit/tuner
+      config:
+        autoSync: true
+        presets: {}

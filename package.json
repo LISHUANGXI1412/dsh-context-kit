@@ -1,0 +1,65 @@
+{
+  "name": "dsh-context-kit",
+  "version": "0.1.0",
+  "description": "Save context tokens in DSH: a compaction-safe context index, and a tuner that lifts the auto-compaction trigger without freezing the preset — plus a Settings panel for both.",
+  "type": "module",
+  "main": "index.js",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/LISHUANGXI1412/dsh-context-kit"
+  },
+  "author": "LISHUANGXI1412",
+  "keywords": [
+    "dsh",
+    "dsh-plugin",
+    "context",
+    "compaction",
+    "agent-preset",
+    "tokens",
+    "index"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "exports": {
+    ".": "./index.js",
+    "./tuner": "./tuner.js",
+    "./client": "./client/panel.js",
+    "./icon": "./icon.svg"
+  },
+  "files": [
+    "index.js",
+    "tuner.js",
+    "lib/",
+    "bin/",
+    "client/",
+    "cordis.patch.yml",
+    "icon.svg",
+    "README.md",
+    "LICENSE"
+  ],
+  "bin": {
+    "dsh-context-kit": "./bin/dsh-context-kit.mjs"
+  },
+  "scripts": {
+    "test": "node --test"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web",
+      "inject": [
+        "@deepseek-ai/dsh-client-runtime",
+        "@deepseek-ai/dsh-client-ui-slots",
+        "@deepseek-ai/dsh-client-ui-settings",
+        "@deepseek-ai/dsh-client-connection"
+      ]
+    }
+  },
+  "dependencies": {
+    "@deepseek-ai/dsh-typert-protocol": "0.2.1-rc.2"
+  }
+}
