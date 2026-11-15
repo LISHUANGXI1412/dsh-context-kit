@@ -12,7 +12,9 @@ permissions:
 
 jobs:
   publish:
-    runs-on: ubuntu-latest
+    # DSH desktop runs on Windows, and the context-index tests assert Windows path
+    # normalization, so the release runs on the same platform the plugin targets.
+    runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
 
@@ -22,13 +24,16 @@ jobs:
           registry-url: 'https://registry.npmjs.org'
 
       - name: Upgrade npm for trusted publishing
-        run: npm install -g npm@latest
+        shell: cmd
+        run: npm.cmd install -g "npm@^11"
 
       - name: Validate package
+        shell: cmd
         run: |
           node --check index.js
           node --test
-          npm pack --dry-run
+          npm.cmd pack --dry-run
 
       - name: Publish to npm
-        run: npm publish --access public --provenance
+        shell: cmd
+        run: npm.cmd publish --access public --provenance
