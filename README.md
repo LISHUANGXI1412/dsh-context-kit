@@ -1,17 +1,19 @@
 # dsh-context-kit
 
-Save context tokens in DSH. One package, three parts:
+Manage the automatic-compaction threshold in DSH without freezing the agent preset.
 
 | part | what it does |
 | --- | --- |
-| **context index** (host) | Keeps a small, stable system-prompt section listing the *pointers* that compaction would otherwise erase: recent tool artifacts and touched paths. Summaries lose content, not locations. |
 | **preset tuner** (host) | Moves the automatic-compaction trigger earlier — and does it without freezing the agent preset, by regenerating the override from the preset that ships inside the app. |
 | **Settings panel** (web) | A Context page: drag the trigger point, apply, preview, remove. No YAML editing. |
+| **package entry** (host, `host.js`) | An intentionally empty plugin row that keeps `dsh-context-kit` itself present in the composed tree. DSH mounts a package's browser half by **package name**; with only subpath rows (`dsh-context-kit/tuner`) the Settings page silently fails to load. |
 
-Why this combination: compaction is the lever that actually moves the bill. Compacting at 524K instead of
-679K avoids re-sending the region above the trigger on every step; the index then makes sure the summary
-that replaces that region still tells the model where things are. The two are complementary — the index
-alone saves nothing on its own, and earlier compaction alone loses pointers.
+> The context index moved to **[dsh-token-trim](https://www.npmjs.com/package/dsh-token-trim)** in 0.3.0:
+> that package now owns tool-result trimming, the context index and the “Savings” view. Install it next to
+> this one if you want the pointer index back.
+
+Why the tuner: compaction is the lever that actually moves the bill. Compacting at 410K instead of 679K
+avoids re-sending the region above the trigger on every step.
 
 ## Install
 
@@ -21,10 +23,11 @@ dsh plugin add dsh-context-kit
 
 Restart DSH. You get:
 
-- two host plugins (`context-kit-index`, `context-kit-tuner`),
+- the tuner host plugin (`context-kit-tuner`) plus the empty package row (`context-kit`),
 - a **Settings → Context** page,
 - a `preset_tuner` tool,
 - a `dsh-context-kit` CLI.
+
 
 ## Panel: Settings → Context
 

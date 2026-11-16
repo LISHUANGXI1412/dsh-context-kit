@@ -1,7 +1,7 @@
-{
+﻿{
   "name": "dsh-context-kit",
   "version": "0.2.0",
-  "description": "Save context tokens in DSH: a compaction-safe context index, and a tuner that lifts the auto-compaction trigger without freezing the preset — plus a Settings panel for both.",
+  "description": "Compaction-threshold tuner for DeepSeek Harness: edits the agent preset (thresholdRatio / retainRatio) with provenance-safe patches, and shows measured usage. The context index now lives in dsh-token-trim.",
   "type": "module",
   "main": "index.js",
   "license": "MIT",
@@ -23,12 +23,14 @@
     "node": ">=22"
   },
   "exports": {
-    ".": "./index.js",
+    ".": "./host.js",
+    "./index-host": "./index.js",
     "./tuner": "./tuner.js",
     "./client": "./client/panel.js",
     "./icon": "./icon.svg"
   },
   "files": [
+    "host.js",
     "index.js",
     "tuner.js",
     "lib/",

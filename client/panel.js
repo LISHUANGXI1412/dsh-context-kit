@@ -60,6 +60,19 @@ window.__ModuleLoader__.load({
       effectCurrent: 'current',
       effectCoverage: 'data under the current threshold',
       effectModelOnly: 'Too few steps ran under the current threshold — treat the estimate as a direction, not a result.',
+      toolTitle: 'Tool savings',
+      toolLinked: 'linked to token-trim',
+      toolStandalone: 'standalone (token-trim not loaded)',
+      toolNote: 'Read from the token-trim manifest. 0.306 token/char measured here; tool results were 40.7% of the audited bill. Not a bill.',
+      toolMissing: 'No token-trim manifest yet. Install dsh-token-trim to get tool-level summaries and truncation; this card then fills itself.',
+      toolEmpty: 'Manifest exists, but no result has been transformed yet.',
+      toolEvents: 'results',
+      toolTokens: 'est. tokens',
+      toolSaved: 'saved',
+      toolBill: 'est. bill',
+      toolView: 'Full session detail is the “Savings” View tab next to Chat / Trajectory / Stats.',
+      toolRun: 'Refresh',
+      toolSessions: 'sessions',
     }
 
     const ZH = {
@@ -116,6 +129,19 @@ window.__ModuleLoader__.load({
       effectCurrent: '当前',
       effectCoverage: '当前阈值下的实测',
       effectModelOnly: '当前阈值下实际跑过的步数还太少 —— 这个估算只能当方向，不能当结论。',
+      toolTitle: '工具节省',
+      toolLinked: '已联动 token-trim',
+      toolStandalone: '独立统计（token-trim 未加载）',
+      toolNote: '来自 token-trim 的 manifest。0.306 token/字符为本机实测；工具结果占审计账单 40.7%。这不是账单。',
+      toolMissing: '还没有 token-trim 的 manifest。装 dsh-token-trim 后，这里会自动出现工具级摘要与截断的统计。',
+      toolEmpty: 'manifest 已存在，但还没有任何结果被改写。',
+      toolEvents: '次处理',
+      toolTokens: '约合 token',
+      toolSaved: '省下',
+      toolBill: '折算账单',
+      toolView: '完整的分会话明细在对话上方的「节省」视图标签（与 对话 / 轨迹 / 统计 并列）。',
+      toolRun: '刷新',
+      toolSessions: '个会话',
     }
 
     const CSS = [
@@ -136,6 +162,9 @@ window.__ModuleLoader__.load({
       '.ck_warn { color: #d97706; }',
       '.ck_err { color: #dc2626; }',
       '.ck_pre { max-height: 220px; overflow: auto; font-size: 11px; background: rgba(127,127,127,.12); padding: 8px; border-radius: 8px; white-space: pre-wrap; }',
+      '.ck_badge { font-size: 10px; padding: 1px 6px; border-radius: 999px; background: rgba(37,99,235,.16); }',
+      '.ck_badge.off { background: rgba(127,127,127,.18); }',
+      '.ck_big { font-size: 18px; font-weight: 600; font-variant-numeric: tabular-nums; }',
     ].join('\n')
 
     const fmtK = (tokens) => {
@@ -195,6 +224,11 @@ window.__ModuleLoader__.load({
         clear: () => call('clear', {}),
         sync: () => call('sync', { force: false, mode: 'append' }),
         report: (days) => call('report', { days: days }),
+        toolSavings: () => call('toolSavings', {}),
+        probeTokenGuard: () =>
+          ctx.connection.rpc.call('/api', 'tokenTrim/status', { args: {} }, undefined).then(function (response) {
+            return Boolean(response && response.ok)
+          }),
         save: (input) =>
           call('save', {
             presetId: input.presetId,
@@ -260,6 +294,40 @@ window.__ModuleLoader__.load({
         ...rows)
     }
 
+    function ToolSavingsCard(props) {
+      const t = props.t
+      const data = props.data
+      const linked = props.linked
+      const rows = []
+      if (!data) {
+        rows.push(meta('…'))
+      } else if (!data.available) {
+        rows.push(meta(t('toolMissing')))
+      } else if (!data.events) {
+        rows.push(meta(t('toolEmpty')))
+      } else {
+        rows.push(h('div', { className: 'ck_row' },
+          h('span', { className: 'ck_big' }, '−' + Number(data.cutPct).toFixed(1) + '%'),
+          meta(fmtBig(data.orig) + ' → ' + fmtBig(data.vis) + ' chars')))
+        rows.push(h('div', { className: 'ck_row' },
+          meta(data.events + ' ' + t('toolEvents') + ' · ' + data.sessions + ' ' + t('toolSessions')),
+          meta(t('toolSaved') + ' ' + fmtBig(data.saved) + ' chars'),
+          meta(t('toolTokens') + ' ~' + fmtBig(data.tokens))))
+        for (const tool of data.tools || []) {
+          rows.push(meta('  ' + tool.name + ': ' + fmtBig(tool.saved) + ' chars / ' + tool.events))
+        }
+        rows.push(meta(t('toolView')))
+        rows.push(meta(t('toolNote')))
+      }
+      return h('div', { className: 'ck_card' },
+        h('div', { className: 'ck_row' },
+          h('label', null, t('toolTitle')),
+          h('span', { className: 'ck_badge' + (linked ? '' : ' off') }, linked ? t('toolLinked') : t('toolStandalone')),
+          h('button', { className: 'ck_btn', type: 'button', disabled: props.busy, onClick: props.onRun },
+            props.busy ? t('busy') : t('toolRun'))),
+        ...rows)
+    }
+
     function SliderRow(props) {
       return h('div', { className: 'ck_row' },
         h('label', null, props.label),
@@ -287,6 +355,9 @@ window.__ModuleLoader__.load({
       const [error, setError] = React.useState('')
       const [pre, setPre] = React.useState('')
       const [report, setReport] = React.useState(null)
+      const [toolSavings, setToolSavings] = React.useState(null)
+      const [toolLinked, setToolLinked] = React.useState(false)
+      const [toolBusy, setToolBusy] = React.useState(false)
 
       const load = React.useCallback(function () {
         return api.status().then(function (next) {
@@ -301,6 +372,19 @@ window.__ModuleLoader__.load({
       }, [api])
 
       React.useEffect(function () { load() }, [load])
+
+      const loadTool = React.useCallback(function () {
+        setToolBusy(true)
+        return api.toolSavings().then(function (data) {
+          setToolSavings(data)
+        }).catch(function () {
+          setToolSavings({ available: false })
+        }).then(function () {
+          return api.probeTokenGuard().then(function (ok) { setToolLinked(Boolean(ok)) }).catch(function () { setToolLinked(false) })
+        }).then(function () { setToolBusy(false) })
+      }, [api])
+
+      React.useEffect(function () { loadTool() }, [loadTool])
 
       const run = function (label, task) {
         setBusy(true)
@@ -405,6 +489,13 @@ window.__ModuleLoader__.load({
               return api.report(7).then(function (next) { setReport(next) })
             })
           },
+        }),
+        h(ToolSavingsCard, {
+          t: t,
+          data: toolSavings,
+          linked: toolLinked,
+          busy: toolBusy,
+          onRun: loadTool,
         }),
         ...infoRows)
     }
